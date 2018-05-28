@@ -1,0 +1,38 @@
+tosca_definitions_version: cloudify_dsl_1_3
+
+imports:
+  - http://www.getcloudify.org/spec/cloudify/4.3/types.yaml
+  - https://raw.githubusercontent.com/EarthmanT/cloudify-execution-plugin/fa49b5c6c76835b7fc65f3d4e27ea767c4750911/plugin.yaml
+
+inputs:
+
+  host_ip:
+    type: string
+
+  username:
+    type: string
+    default: ubuntu
+
+  resource:
+    default: resources/zips/apt_get.zip
+
+node_templates:
+
+  application:
+    type: cloudify.nodes.Execution
+    properties:
+      resource_config:
+        resource_path: { get_input: resource }
+    relationships:
+    - type: cloudify.relationships.contained_in
+      target: host
+
+  host:
+    type: cloudify.nodes.Compute
+    properties:
+      ip: { get_input: host_ip }
+      agent_config:
+        install_method: remote
+        port: 22
+        user: { get_input: username }
+        key: { get_secret: agent_key_private }

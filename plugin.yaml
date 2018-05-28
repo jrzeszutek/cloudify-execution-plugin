@@ -1,0 +1,32 @@
+plugins:
+
+  exec:
+    executor: host_agent
+    package_name: cloudify-execution-plugin
+    package_version: '0.1.dev0'
+    source: https://github.com/EarthmanT/cloudify-execution-plugin/archive/bd41e6b718922b4516a06da26ef08d7ee7f8f944.zip
+
+data_types:
+
+  cloudify.types.exec.Package:
+    properties:
+      resource_path:
+        type: string
+        description: Zip or Gzip archive relative to blueprint path that contains a file named "exec".
+        required: false
+
+node_types:
+
+  cloudify.nodes.Execution:
+    derived_from: cloudify.nodes.SoftwareComponent
+    properties:
+      resource_config:
+        type: cloudify.types.exec.Package
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: &exec_op
+          implementation: exec.exec_plugin.tasks.execute
+          inputs:
+            resource_config:
+              type: cloudify.types.exec.Package
+              default: { get_property: [ SELF, resource_config ] }
