@@ -14,7 +14,7 @@ inputs:
     default: ubuntu
 
   resource:
-    default: resources/zips/apt_get.zip
+    default: resources/zips/ansible.zip
 
 node_templates:
 
