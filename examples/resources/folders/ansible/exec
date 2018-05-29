@@ -7,9 +7,6 @@ sudo apt-add-repository ppa:ansible/ansible -y
 sudo apt-get update -y
 sudo apt-get install ansible -y
 
-cat <<EOT >> hosts.temp
-localhost ansible_connection=local
-EOT
-sudo mv hosts.temp /etc/ansible/hosts
+sudo cp hosts.tmp /etc/ansible/hosts
 
 ansible-playbook helloworld.yml

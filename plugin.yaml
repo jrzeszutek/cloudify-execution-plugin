@@ -4,7 +4,7 @@ plugins:
     executor: host_agent
     package_name: cloudify-execution-plugin
     package_version: '0.2.dev0'
-    source: https://github.com/EarthmanT/cloudify-execution-plugin/archive/0.2.dev0.zip
+    source: https://github.com/EarthmanT/cloudify-execution-plugin/archive/dev2.zip
 
 data_types:
 

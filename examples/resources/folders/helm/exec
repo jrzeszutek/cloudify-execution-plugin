@@ -1,0 +1,19 @@
+#!/bin/bash
+
+if [[ "$SCRIPT_NAME" == "install.sh" ]]
+then
+    chmod 755 install_kubectl.sh
+    ./install_kubectl.sh
+fi
+
+export KUBECONFIG=$(pwd)/kubeconfig
+
+chmod 755 $SCRIPT_NAME
+for i in consul msb mso appc message-router sdnc vid robot policy portal aai sdc log cli multicloud clamp vnfsdk uui aaf vfc kube2msb
+do ./$SCRIPT_NAME onap $i
+done
+
+if [[ "$SCRIPT_NAME" == "uninstal.sh" ]]
+then
+    sudo apt-get remove -y kubectl
+fi
