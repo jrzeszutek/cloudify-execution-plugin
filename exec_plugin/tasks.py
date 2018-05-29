@@ -2,48 +2,65 @@
 import os
 import subprocess
 import tempfile
-import zipfile
 
 from cloudify import ctx
-from cloudify.exceptions import NonRecoverableError
+from cloudify.exceptions import (
+    NonRecoverableError,
+    OperationRetry)
 
 
-def unzip_archive(archive_path):
-    """ Unzip a zip archive. """
+def get_package_dir(resource_list, template_variables):
+    """ Download resources and return the path. """
 
-    directory_to_extract_to = tempfile.mkdtemp()
-    zip_ref = zipfile.ZipFile(archive_path, 'r')
-    zip_ref.extractall(directory_to_extract_to)
-    zip_ref.close()
-
-    unzipped_work_directory = \
-        os.path.join(
-            directory_to_extract_to, zip_ref.namelist()[0])
-
-    if not os.path.isdir(unzipped_work_directory):
-        raise
-
-    return unzipped_work_directory
+    work_dir = tempfile.mkdtemp()
+    for resource_path in resource_list:
+        resource_name = os.path.basename(resource_path)
+        download_to = os.path.join(work_dir, resource_name)
+        ctx.download_resource_and_render(
+            resource_path,
+            download_to,
+            template_variables)
+    return work_dir
 
 
-def get_package_dir(resource_path):
-    """ Download unzip and return the path. """
+def handle_overrides(overrides, current):
+    if not isinstance(overrides, dict):
+        INVALID_OVERRIDES_ERROR = \
+            'Invalid overrides {0}: not a dict.'
+        ctx.logger.debug(
+            INVALID_OVERRIDES_ERROR.format(overrides))
+        return
+    if overrides.pop('PERSIST_CFY_AGENT_ENV_BOOL', True):
+        env = os.environ.copy()
+        _overrides_env = overrides.pop('env', {})
+        _overrides_path = _overrides_env.pop('PATH', '')
+        if _overrides_path:
+            if not _overrides_path.startswith(':'):
+                _overrides_path = ':' + _overrides_path
+            _overrides_env['PATH'] = env['PATH'] + _overrides_path
+        env.update(_overrides_env)
+        overrides['env'] = env
+    current.update(overrides)
 
-    package_zip = ctx.download_resource(resource_path)
-    package_dir = unzip_archive(package_zip)
-    return package_dir
 
-
-def execute(resource_config, file_to_source='exec',
-            subprocess_args_overrides=None, timeout=60,
-            ignore_failure=False, retry_on_failure=False, **_):
+def execute(resource_config,
+            file_to_source='exec',
+            subprocess_args_overrides=None,
+            ignore_failure=False,
+            retry_on_failure=False, **_):
 
     """ Execute some file in an extracted archive. """
 
-    if 'resource_path' not in resource_config:
-        raise
+    resource_config = \
+        resource_config or ctx.node.properties['resource_config']
 
-    cwd = get_package_dir(resource_config['resource_path'])
+    resource_list = resource_config.get('resource_list', [])
+    template_variables = resource_config.get('template_variables', {})
+
+    if not isinstance(resource_list, list) or not len(resource_list) > 0:
+        raise NonRecoverableError("'resource_list' must be a list.")
+
+    cwd = get_package_dir(resource_list, template_variables)
     command = ['bash', '-c', 'source {0}'.format(file_to_source)]
 
     subprocess_args = \
@@ -55,26 +72,18 @@ def execute(resource_config, file_to_source='exec',
             'cwd': cwd
         }
 
-    if isinstance(subprocess_args_overrides, dict):
-        if 'env' in subprocess_args_overrides:
-            _env_overrides = subprocess_args_overrides.pop('env')
-            _env = os.environ.copy()
-            if 'PATH' in _env_overrides:
-                _env_path = _env_overrides.pop('PATH')
-                _env["PATH"] = _env["PATH"] + _env_path
-            subprocess_args_overrides['env'] = _env
-        subprocess_args.update(subprocess_args_overrides)
+    handle_overrides(subprocess_args_overrides, subprocess_args)
 
     ctx.logger.debug('Args: {0}'.format(subprocess_args))
 
     process = subprocess.Popen(**subprocess_args)
 
     out, err = process.communicate()
-
     ctx.logger.debug('Out: {0}'.format(out))
     ctx.logger.debug('Err: {0}'.format(err))
 
     if process.returncode and retry_on_failure:
         raise OperationRetry('Retrying: {0}'.format(err))
-    elif process.returncode and ignore_failure:
+
+    elif process.returncode and not ignore_failure:
         raise NonRecoverableError('Failed: {0}'.format(err))

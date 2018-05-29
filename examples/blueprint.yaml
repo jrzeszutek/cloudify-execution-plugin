@@ -2,7 +2,7 @@ tosca_definitions_version: cloudify_dsl_1_3
 
 imports:
   - http://www.getcloudify.org/spec/cloudify/4.3/types.yaml
-  - https://raw.githubusercontent.com/EarthmanT/cloudify-execution-plugin/0.1/plugin.yaml
+  - https://raw.githubusercontent.com/EarthmanT/cloudify-execution-plugin/0.3/plugin.yaml
 
 inputs:
 
@@ -13,8 +13,12 @@ inputs:
     type: string
     default: ubuntu
 
-  resource:
-    default: resources/zips/ansible.zip
+  resource_list:
+    # For Ansible.
+    default:
+    - resources/ansible/exec
+    - resources/ansible/helloworld.yml
+    - resources/ansible/hosts.tmp
 
 node_templates:
 
@@ -22,10 +26,23 @@ node_templates:
     type: cloudify.nodes.Execution
     properties:
       resource_config:
-        resource_path: { get_input: resource }
+        resource_list: { get_input: resource_list }
     relationships:
     - type: cloudify.relationships.contained_in
       target: host
+    # For HELM.
+    # interfaces:
+    #   cloudify.interfaces.lifecycle:
+    #     create:
+    #       implementation: exec.exec_plugin.tasks.execute
+    #       inputs:
+    #         resource_config: { get_property: [ SELF, resource_config ] }
+    #         subprocess_args_overrides: {'env': {'SCRIPT_NAME': 'install.sh'}}
+    #     delete:
+    #       implementation: exec.exec_plugin.tasks.execute
+    #       inputs:
+    #         resource_config: { get_property: [ SELF, resource_config ] }
+    #         subprocess_args_overrides: {'env': {'SCRIPT_NAME': 'uninstall.sh'}}
 
   host:
     type: cloudify.nodes.Compute

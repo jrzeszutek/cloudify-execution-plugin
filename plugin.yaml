@@ -3,17 +3,19 @@ plugins:
   exec:
     executor: host_agent
     package_name: cloudify-execution-plugin
-    package_version: '0.2.dev0'
-    source: https://github.com/EarthmanT/cloudify-execution-plugin/archive/0.2.dev0.zip
+    package_version: '0.3'
+    source: https://github.com/EarthmanT/cloudify-execution-plugin/archive/0.3.zip
 
 data_types:
 
   cloudify.types.exec.Package:
     properties:
-      resource_path:
-        type: string
-        description: Zip or Gzip archive relative to blueprint path that contains a file named "exec".
-        required: false
+      resource_list:
+        description: A list of file paths under the blueprint root.
+        default: []
+      template_variables:
+        description: A dict containing variables as key-values.
+        default: {}
 
 node_types:
 

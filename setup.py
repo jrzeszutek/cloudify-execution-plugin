@@ -18,7 +18,7 @@ from setuptools import setup
 
 setup(
     name='cloudify-execution-plugin',
-    version='0.2.dev0',
+    version='0.3',
     packages=['exec_plugin'],
     license='LICENSE',
     description='Execute something.',
