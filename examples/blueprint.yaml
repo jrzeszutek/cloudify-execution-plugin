@@ -2,7 +2,7 @@ tosca_definitions_version: cloudify_dsl_1_3
 
 imports:
   - http://www.getcloudify.org/spec/cloudify/4.3/types.yaml
-  - https://raw.githubusercontent.com/EarthmanT/cloudify-execution-plugin/0.1/plugin.yaml
+  - https://raw.githubusercontent.com/EarthmanT/cloudify-execution-plugin/dev2/plugin.yaml
 
 inputs:
 
@@ -14,7 +14,9 @@ inputs:
     default: ubuntu
 
   resource:
-    default: resources/zips/apt_get.zip
+    # default: resources/zips/apache2.zip
+    # default: resources/zips/ansible.zip
+    default: resources/zips/helm.zip
 
 node_templates:
 
@@ -26,6 +28,18 @@ node_templates:
     relationships:
     - type: cloudify.relationships.contained_in
       target: host
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: exec.exec_plugin.tasks.execute
+          inputs:
+            resource_config: { get_property: [ SELF, resource_config ] }
+            subprocess_args_overrides: {'env': {'SCRIPT_NAME': 'install.sh'}}
+        delete:
+          implementation: exec.exec_plugin.tasks.execute
+          inputs:
+            resource_config: { get_property: [ SELF, resource_config ] }
+            subprocess_args_overrides: {'env': {'SCRIPT_NAME': 'uninstall.sh'}}
 
   host:
     type: cloudify.nodes.Compute
