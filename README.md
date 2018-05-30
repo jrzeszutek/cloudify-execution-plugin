@@ -63,6 +63,37 @@ Create a execution node template in your blueprint such as this:
 
 ```
 
+See below for blueprint installation instructions.
+
+
+## Ansible Example
+
+This example shows another use case: executing an Ansible workflow.
+
+The blueprint uses the following files:
+
+1. `exec`, which contains the core instructions.
+1. `helloworld.yaml`, which is an Ansible Playbook.
+1. `hosts.tmp`, which is the Ansible Inventory file.
+
+The blueprint itself includes the files:
+
+```yaml
+  application:
+    type: cloudify.nodes.Execution
+    properties:
+      resource_config:
+        resource_list:
+        - resources/ansible/exec
+        - resources/ansible/helloworld.yml
+        - resources/ansible/hosts.tmp
+    relationships:
+    - type: cloudify.relationships.contained_in
+      target: host
+```
+
+You need your Cloudify Manager, with a secret for `agent_key_private` IP of a Ubuntu 14.04 VM to run this example. Use the instructions in the next step.
+
 
 ### Install the blueprint:
 
@@ -72,3 +103,5 @@ $ cfy deployments create --skip-plugins-validation -i host_ip=192.168.120.11 -b 
 $ cfy executions start install -vv -d experiment-no-01
 $ cfy executions start uninstall -vv -d experiment-no-01
 ```
+
+__If you have a Kubernetes Cluster with Helm and Tiller running, you can install ONAP using the Helm files in `resources/helm`.__
