@@ -1,9 +1,43 @@
 # cloudify-execution-plugin
 
-Execute code contained in a list of files.
+Execute arbitrary code. Specify a list of resources, such as scripts, binaries, dependencies in a single node template. The root script file `exec` will contain all of your instructions.
 
-The plugin creates a temporary directory. It will execute everything relative to the directory. By default it will look for a file named `exec` in the temporary directory and follow any instructions that you put there.
+**Example Node Template**
 
+```yaml
+
+  application:
+    type: cloudify.nodes.Execution
+    properties:
+      resource_config:
+        resource_list:
+        - resources/exec
+        - resources/my_binary
+        - resources/data.json
+    relationships:
+    - type: cloudify.relationships.contained_in
+      target: host
+
+```
+
+**Example Exec Script**
+
+```bash
+#!/bin/bash
+
+# content of resources/exec
+source ./my_file
+./my_binary -arg my_file <$(cat ./data.json)
+
+```
+
+**What happens**
+
+The plugin creates a temporary directory. It copies all of the files to it.
+
+It will then execute everything relative to the temporary directory.
+
+_Note: By default the plugin looks to execute a file named `exec` in the temporary directory. This may be overridden._
 
 ## Prerequisites
 
