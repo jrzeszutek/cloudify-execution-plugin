@@ -35,7 +35,7 @@ source ./my_file
 
 The plugin creates a temporary directory. It copies all of the files to it.
 
-It will then execute everything relative to the temporary directory.
+It will then execute the `exec` file relative to the temporary directory.
 
 _Note: By default the plugin looks to execute a file named `exec` in the temporary directory. This may be overridden._
 
