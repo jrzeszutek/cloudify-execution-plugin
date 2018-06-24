@@ -45,6 +45,51 @@ _Note: By default the plugin looks to execute a file named `exec` in the tempora
   * You need a minimal VM. Any node type derived from `cloudify.nodes.Compute` will do.
 
 
+## Operations
+
+There is only one task defined in the plugin `execute`. This function wraps a `subprocess.Popen` [constructor](https://docs.python.org/2/library/subprocess.html#subprocess.Popen). 
+
+  * `cloudify.interfaces.lifecycle.create`
+    * `implementation: exec.exec_plugin.tasks.execute`
+
+The `create` operation can be remapped to other lifecycle interface operations, such as `start` or `stop`, etc.
+
+Other `subprocess.Popen` features can be via `inputs`, for example add environment variables:
+
+```yaml
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: exec.exec_plugin.tasks.execute
+          inputs:
+            resource_config: { get_property: [ SELF, resource_config ] }
+            subprocess_args_overrides:
+              env:
+                JOB: 'install'
+        delete:
+          implementation: exec.exec_plugin.tasks.execute
+          inputs:
+            resource_config: { get_property: [ SELF, resource_config ] }
+            subprocess_args_overrides:
+              env:
+                JOB: 'uninstall'
+```
+
+You can call different scripts from different lifecycle operations in the main `exec` file by adding conditional bash logic:
+
+```bash
+if [[ "$JOB" == "install" ]]
+then
+    chmod 755 install.sh
+    ./install.sh
+elif [[ "$JOB" == "uninstall" ]]
+then
+    chmod 755 uninstall.sh
+    ./uninstall.sh
+fi
+
+```
+
 ## Example:
 
 
