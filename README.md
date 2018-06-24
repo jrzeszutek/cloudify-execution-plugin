@@ -57,6 +57,17 @@ The `create` operation can be remapped to other lifecycle interface operations, 
 Other `subprocess.Popen` features can be via `inputs`, for example add environment variables:
 
 ```yaml
+  application:
+    type: cloudify.nodes.Execution
+    properties:
+      resource_config:
+        resource_list:
+        - resources/exec
+        - resources/install.sh
+        - resources/uninstall.sh
+    relationships:
+    - type: cloudify.relationships.contained_in
+      target: host
     interfaces:
       cloudify.interfaces.lifecycle:
         create:
