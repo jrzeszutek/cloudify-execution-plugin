@@ -1,4 +1,4 @@
 ---
-- hosts: all
+- hosts: jumper
   tasks:
-    - shell: echo "hello world"
+    - shell: echo "hello {{ ansible_host }}"

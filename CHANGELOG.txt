@@ -1,0 +1,3 @@
+releases:
+- 0.3.0: First functional release.
+- 0.4.0: Add support for folders and nested zip archives.
