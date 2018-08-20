@@ -1,1 +1,1 @@
-localhost ansible_connection=local
+{{ host_ip }} ansible_connection=local

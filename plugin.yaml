@@ -1,17 +1,23 @@
 plugins:
 
   exec:
-    executor: host_agent
+    executor: central_deployment_agent
     package_name: cloudify-execution-plugin
-    package_version: '0.3'
-    source: https://github.com/EarthmanT/cloudify-execution-plugin/archive/0.3.zip
+    package_version: '0.4'
 
 data_types:
 
   cloudify.types.exec.Package:
     properties:
+      resource_dir:
+        description: >
+          A directory under the blueprint root,
+          which content needs to be copied and kept unchanged.
+        default: ''
       resource_list:
-        description: A list of file paths under the blueprint root.
+        description: >
+          A list of file paths under the blueprint root,
+          which need to be filled with values of template_variables.
         default: []
       template_variables:
         description: A dict containing variables as key-values.
@@ -24,6 +30,7 @@ node_types:
     properties:
       resource_config:
         type: cloudify.types.exec.Package
+        required: false
     interfaces:
       cloudify.interfaces.lifecycle:
         create: &exec_op
@@ -32,3 +39,6 @@ node_types:
             resource_config:
               type: cloudify.types.exec.Package
               default: { get_property: [ SELF, resource_config ] }
+            file_to_source:
+              type: string
+              default: exec

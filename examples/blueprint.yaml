@@ -2,7 +2,7 @@ tosca_definitions_version: cloudify_dsl_1_3
 
 imports:
   - http://www.getcloudify.org/spec/cloudify/4.3/types.yaml
-  - https://raw.githubusercontent.com/EarthmanT/cloudify-execution-plugin/0.3/plugin.yaml
+  - plugin:cloudify-execution-plugin?version=0.4
 
 inputs:
 
@@ -16,9 +16,7 @@ inputs:
   resource_list:
     # For Ansible.
     default:
-    - resources/ansible/exec
-    - resources/ansible/helloworld.yml
-    - resources/ansible/hosts.tmp
+      - hosts.tmp
 
 node_templates:
 
@@ -26,10 +24,17 @@ node_templates:
     type: cloudify.nodes.Execution
     properties:
       resource_config:
+        resource_dir: resources/ansible.zip
         resource_list: { get_input: resource_list }
-    relationships:
-    - type: cloudify.relationships.contained_in
-      target: host
+        template_variables:
+          host_ip: { get_input: host_ip }
+    # interfaces:
+    #   cloudify.interfaces.lifecycle:
+    #     create:
+    #       executor: central_deployment_agent
+    # relationships:
+    # - type: cloudify.relationships.contained_in
+    #   target: host
     # For HELM.
     # interfaces:
     #   cloudify.interfaces.lifecycle:
@@ -44,12 +49,12 @@ node_templates:
     #         resource_config: { get_property: [ SELF, resource_config ] }
     #         subprocess_args_overrides: {'env': {'SCRIPT_NAME': 'uninstall.sh'}}
 
-  host:
-    type: cloudify.nodes.Compute
-    properties:
-      ip: { get_input: host_ip }
-      agent_config:
-        install_method: remote
-        port: 22
-        user: { get_input: username }
-        key: { get_secret: agent_key_private }
+  # host:
+  #   type: cloudify.nodes.Compute
+  #   properties:
+  #     ip: { get_input: host_ip }
+  #     agent_config:
+  #       install_method: remote
+  #       port: 22
+  #       user: { get_input: username }
+  #       key: { get_secret: agent_key_private }

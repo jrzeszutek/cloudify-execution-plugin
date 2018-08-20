@@ -1,4 +1,4 @@
 ---
 - hosts: all
   tasks:
-    - shell: echo "hello world"
+    - shell: echo "hello {{ host_ip }}"
