@@ -33,9 +33,38 @@ source ./my_file
 
 **What happens**
 
-The plugin creates a temporary directory. It copies all of the files to it.
+The plugin creates a temporary directory. What happens then, depends on defined properties.
 
-It will then execute the `exec` file relative to the temporary directory.
+  * 1st use case: both `resource_dir` and `resource_list` are defined
+
+  Plugin renders all of the files defined in `resource_list` with the values \
+  defined in `template_variables` (if empty, it just copies the files unchanged \
+  to temporary working directory) and copies rendered files to temporary \
+  directory. The rest of files inside `resource_dir` directory are copied \
+  unchanged.
+
+  If `resource_dir` is a zip file, its content is being extracted first. If \
+  there are any zip files defined in `resource_list`, they are also being \
+  extracted.
+
+  * 2nd use case: `resource_dir` is defined and `resource_list` is not
+
+  Plugin renders all of the files inside of a directory (or files extracted \
+  from zip archive) \
+  defined in `resource_dir` with the values defined in `template_variables`. \
+  If `template_variables` is not empty, files extracted from `resource_dir` are \
+  being rendered with them and copied to temporary directory. If `template_variables` \
+  is empty, then files are just being copied (without rendering).
+
+  * 3rd use case: `resource_dir` is not defined and `resource_list` is defined
+
+  Plugin renders all of the files in `resource_list` (including these extracted \
+  from zip files being a part of a `resource_list`) with the values defined in \
+  `template_variables` and copies them to temporary directory. If \
+  `template_variables` is empty, then files are just being copied (without \
+  rendering).
+
+Plugin will then execute the `exec` file relative to the temporary directory.
 
 _Note: By default the plugin looks to execute a file named `exec` in the temporary directory. This may be overridden._
 
@@ -47,7 +76,7 @@ _Note: By default the plugin looks to execute a file named `exec` in the tempora
 
 ## Operations
 
-There is only one task defined in the plugin `execute`. This function wraps a `subprocess.Popen` [constructor](https://docs.python.org/2/library/subprocess.html#subprocess.Popen). 
+There is only one task defined in the plugin `execute`. This function wraps a `subprocess.Popen` [constructor](https://docs.python.org/2/library/subprocess.html#subprocess.Popen).
 
   * `cloudify.interfaces.lifecycle.create`
     * `implementation: exec.exec_plugin.tasks.execute`
