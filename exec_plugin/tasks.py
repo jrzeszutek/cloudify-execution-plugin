@@ -74,8 +74,8 @@ def get_deployment_directory():
         return deployment_dir
     else:
         return get_blueprint_directory()
-
-
+      
+      
 def extract_archive_from_path(archive_path,
                               target_directory,
                               intermediate_actions=None):
@@ -131,6 +131,7 @@ def get_package_dir_from_dir_and_list(resource_dir,
                 extracted_template_path = get_resource_relative_path(
                     extracted_template,
                     os.path.join(get_deployment_directory(), resource_dir))
+
                 if extracted_template[2]:
                     for filename in extracted_template[2]:
                         resource_list.append(
@@ -146,6 +147,7 @@ def get_package_dir_from_dir_and_list(resource_dir,
             get_deployment_directory(), resource_dir)):
         trimmed_resource_path = get_resource_relative_path(
             resource_path, os.path.join(get_deployment_directory()))
+
         if resource_path[2]:
             for filename in resource_path[2]:
                 merged_list.append(
