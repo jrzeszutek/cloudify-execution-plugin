@@ -6,7 +6,7 @@ imports:
 
 inputs:
 
-  host_ip:
+  ansible_host:
     type: string
 
   username:
@@ -16,9 +16,10 @@ inputs:
   resource_list:
     # For Ansible.
     default:
-      # - exec
-      # - helloworld.yml
+      - exec
+      - helloworld.yml
       - hosts.tmp
+      - id_rsa
 
 node_templates:
 
@@ -29,7 +30,9 @@ node_templates:
         resource_dir: resources/ansible
         resource_list: { get_input: resource_list }
         template_variables:
-          host_ip: { get_input: host_ip }
+          ansible_host: { get_input: ansible_host }
+          ansible_user: { get_input: username }
+          ansible_ssh_private_key_file: id_rsa
     # interfaces:
     #   cloudify.interfaces.lifecycle:
     #     create:

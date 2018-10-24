@@ -18,12 +18,12 @@ from setuptools import setup
 
 setup(
     name='cloudify-execution-plugin',
-    version='0.4',
+    version='0.4.0',
     packages=['exec_plugin'],
     license='LICENSE',
     description='Execute something.',
     install_requires=[
-        'cloudify-plugins-common',
+        'cloudify-common',
         'Jinja2>=2.9.0'
     ]
 )
