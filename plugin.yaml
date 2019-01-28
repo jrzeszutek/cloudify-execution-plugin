@@ -1,7 +1,10 @@
 plugins:
 
   exec:
+    # executor: host_agent
     executor: central_deployment_agent
+    # source: https://github.com/cloudify-incubator/cloudify-execution-plugin/archive/0.4.0.zip
+    source: cloudify-execution-plugin
     package_name: cloudify-execution-plugin
     package_version: '0.4.0'
 
@@ -22,8 +25,80 @@ data_types:
       template_variables:
         description: A dict containing variables as key-values.
         default: {}
+      # merged_list:
+      #   description: >
+      #     A list of all file paths under the resource_dir.
+      #   default: []
+
+
+relationships:
+
+  cloudify.relationships.execute_from_package:
+    derived_from: cloudify.relationships.depends_on
+    target_interfaces:
+      cloudify.interfaces.relationship_lifecycle:
+        preconfigure:
+          implementation: exec.exec_plugin.tasks.attach_execution_node
+        unlink:
+          implementation: exec.exec_plugin.tasks.detach_execution_node
+
+  cloudify.relationships.package_connected_to_data:
+    derived_from: cloudify.relationships.connected_to
+    target_interfaces:
+      cloudify.interfaces.relationship_lifecycle:
+        preconfigure:
+          implementation: exec.exec_plugin.tasks.retrieve_data
+          inputs:
+            resource_config:
+              default: { get_property: [SOURCE, resource_config] }
+            keypath:
+              default: ''
+        postconfigure:
+          implementation: exec.exec_plugin.tasks.get_paths
+          inputs:
+            resource_config:
+              default: { get_property: [SOURCE, resource_config] }
+        unlink:
+          implementation: exec.exec_plugin.tasks.clear_data
+          inputs:
+            resource_config:
+              default: { get_property: [SOURCE, resource_config] }
+            keypath:
+              default: ''
+
 
 node_types:
+
+  cloudify.nodes.exec.Package:
+    derived_from: cloudify.nodes.SoftwareComponent
+    properties:
+      resource_config:
+        type: cloudify.types.exec.Package
+        required: false
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create:
+          implementation: exec.exec_plugin.tasks.init_package
+        # configure:
+        #   implementation: exec.exec_plugin.tasks.retrieve_private_key
+        #   inputs:
+        #     resource_config:
+        #       default: { get_property: [ SELF, resource_config ] }
+        #     keypath:
+        #       default: ''
+        # start:
+        # configure:
+        #   implementation: exec.exec_plugin.tasks.get_paths
+        #   inputs:
+        #     resource_config:
+        #       default: { get_property: [ SELF, resource_config ] }
+        # stop:
+        #   implementation: exec.exec_plugin.tasks.remove_private_key
+        #   inputs:
+        #     resource_config:
+        #       default: { get_property: [ SELF, resource_config ] }
+        #     keypath:
+        #       default: ''
 
   cloudify.nodes.Execution:
     derived_from: cloudify.nodes.SoftwareComponent
@@ -33,11 +108,11 @@ node_types:
         required: false
     interfaces:
       cloudify.interfaces.lifecycle:
-        create: &exec_op
+        create: {}
+        start: &exec_op
           implementation: exec.exec_plugin.tasks.execute
           inputs:
             resource_config:
-              type: cloudify.types.exec.Package
               default: { get_property: [ SELF, resource_config ] }
             file_to_source:
               type: string

@@ -1,10 +1,10 @@
-
 import os
 import subprocess
 import tempfile
 import errno
 import zipfile
 import copy
+import shutil
 
 from cloudify import ctx
 from cloudify.exceptions import (
@@ -59,23 +59,6 @@ def get_blueprint_directory():
             ctx.tenant_name, ctx.blueprint.id))
 
 
-def get_deployment_directory():
-    # In order to use update workflow, scripts should be taken from
-    # deployment directory. But to assure the possibility of using the
-    # plugin in install workflow (before the deployment directory is
-    # created), it returns this method returns blueprint directory,
-    # if deployment directory doesn't exist yet.
-    deployment_dir = get_directory_by_property_name(
-        'deployment_directory',
-        lambda: '/opt/manager/resources/deployments/{0}/{1}'.format(
-            ctx.tenant_name, ctx.deployment.id))
-
-    if deployment_dir:
-        return deployment_dir
-    else:
-        return get_blueprint_directory()
-      
-      
 def extract_archive_from_path(archive_path,
                               target_directory,
                               intermediate_actions=None):
@@ -109,8 +92,8 @@ def get_package_dir_from_dir_and_list(resource_dir,
     # Deal with ZIP files
     filename, extension = os.path.splitext(resource_dir)
     if extension == '.zip':
-        archive_path = os.path.join(get_deployment_directory(), resource_dir)
-        target_directory = os.path.join(get_deployment_directory(), filename)
+        archive_path = os.path.join(get_blueprint_directory(), resource_dir)
+        target_directory = os.path.join(get_blueprint_directory(), filename)
         resource_dir = filename
         extract_archive_from_path(archive_path, target_directory)
 
@@ -122,16 +105,15 @@ def get_package_dir_from_dir_and_list(resource_dir,
         if extension == '.zip':
             resource_list.remove(template_path)
             archive_path = os.path.join(
-                get_deployment_directory(), resource_dir, template_path)
+                get_blueprint_directory(), resource_dir, template_path)
             target_directory = os.path.join(
-                get_deployment_directory(), resource_dir, filename)
+                get_blueprint_directory(), resource_dir, filename)
             extract_archive_from_path(archive_path, target_directory)
 
             for extracted_template in os.walk(target_directory):
                 extracted_template_path = get_resource_relative_path(
                     extracted_template,
-                    os.path.join(get_deployment_directory(), resource_dir))
-
+                    os.path.join(get_blueprint_directory(), resource_dir))
                 if extracted_template[2]:
                     for filename in extracted_template[2]:
                         resource_list.append(
@@ -144,10 +126,9 @@ def get_package_dir_from_dir_and_list(resource_dir,
     # This loop goes through a directory defined in resource_dir parameter
     # and prepares a list of paths inside it.
     for resource_path in os.walk(os.path.join(
-            get_deployment_directory(), resource_dir)):
+            get_blueprint_directory(), resource_dir)):
         trimmed_resource_path = get_resource_relative_path(
-            resource_path, os.path.join(get_deployment_directory()))
-
+            resource_path, os.path.join(get_blueprint_directory()))
         if resource_path[2]:
             for filename in resource_path[2]:
                 merged_list.append(
@@ -155,12 +136,20 @@ def get_package_dir_from_dir_and_list(resource_dir,
         elif not resource_path[1] and not resource_path[2]:
             merged_list.append(trimmed_resource_path)
 
+    ctx.instance.runtime_properties['merged_list'] = merged_list
+
+
+def download_package_dir_from_dir_and_list( resource_dir,
+                                            resource_list,
+                                            template_variables={}):
     # This loop goes through a templates list defined in resource_list
     # parameter. For each template it renders it (resolves all of variables
     # defined in template_variables parameter) and downloads it to working
     # directory. Finally, it removes a path to this file from the merged_list,
     # because it should be ommitted at the next step, which is copying the rest
     # of the files, which are not templates.
+    merged_list = ctx.instance.runtime_properties['merged_list']
+
     for template_path in resource_list:
         template_dirname = os.path.join(
             resource_dir, os.path.dirname(template_path))
@@ -176,16 +165,13 @@ def get_package_dir_from_dir_and_list(resource_dir,
             if e.errno != errno.EEXIST:
                 raise
 
-        try:
-            ctx.download_resource_and_render(
-                download_from_file,
-                download_to_file,
-                template_variables.copy())
-            if os.path.splitext(download_to_file)[1] == '.py':
-                os.chmod(download_to_file, 0755)
-        except IOError as e:
-            if e.errno != errno.EISDIR:
-                raise
+        ctx.download_resource_and_render(
+            download_from_file,
+            download_to_file,
+            template_variables.copy())
+
+        if os.path.splitext(download_to_file)[1] == '.py':
+            os.chmod(download_to_file, 0755)
 
         if download_from_file in merged_list:
             merged_list.remove(download_from_file)
@@ -209,11 +195,12 @@ def get_package_dir_from_dir_and_list(resource_dir,
             ctx.download_resource(
                 resource_path,
                 download_to_file)
-            if os.path.splitext(download_to_file)[1] == '.py':
-                os.chmod(download_to_file, 0755)
-        except IOError as e:
+        except OSError as e:
             if e.errno != errno.EISDIR:
                 raise
+
+        if os.path.splitext(download_to_file)[1] == '.py':
+            os.chmod(download_to_file, 0755)
 
     return get_current_working_directory()
 
@@ -227,8 +214,8 @@ def get_package_dir_from_dir(resource_dir, template_variables={}):
     # Deal with ZIP files
     filename, extension = os.path.splitext(resource_dir)
     if extension == '.zip':
-        archive_path = os.path.join(get_deployment_directory(), resource_dir)
-        target_directory = os.path.join(get_deployment_directory(), filename)
+        archive_path = os.path.join(get_blueprint_directory(), resource_dir)
+        target_directory = os.path.join(get_blueprint_directory(), filename)
         resource_dir = filename
         extract_archive_from_path(archive_path, target_directory)
 
@@ -237,9 +224,9 @@ def get_package_dir_from_dir(resource_dir, template_variables={}):
     # This loop goes through a directory defined in resource_dir parameter
     # and prepares a list of paths inside it.
     for resource_path in os.walk(
-            os.path.join(get_deployment_directory(), resource_dir)):
+            os.path.join(get_blueprint_directory(), resource_dir)):
         trimmed_resource_path = get_resource_relative_path(
-            resource_path, os.path.join(get_deployment_directory()))
+            resource_path, os.path.join(get_blueprint_directory()))
 
         if resource_path[2]:
             for filename in resource_path[2]:
@@ -248,8 +235,14 @@ def get_package_dir_from_dir(resource_dir, template_variables={}):
         elif not resource_path[1] and not resource_path[2]:
             merged_list.append(trimmed_resource_path)
 
+    ctx.instance.runtime_properties['merged_list'] = merged_list
+
+
+def download_package_dir_from_dir(template_variables={}):
     # This loop goes through the merged_list and downloads the rest of
     # files to our working directory.
+    merged_list = ctx.instance.runtime_properties['merged_list']
+
     for template_path in merged_list:
         template_dirname = os.path.dirname(template_path)
         download_from_file = template_path
@@ -264,16 +257,13 @@ def get_package_dir_from_dir(resource_dir, template_variables={}):
             if e.errno != errno.EEXIST:
                 raise
 
-        try:
-            ctx.download_resource_and_render(
-                download_from_file,
-                download_to_file,
-                template_variables.copy())
-            if os.path.splitext(download_to_file)[1] == '.py':
-                os.chmod(download_to_file, 0755)
-        except IOError as e:
-            if e.errno != errno.EISDIR:
-                raise
+        ctx.download_resource_and_render(
+            download_from_file,
+            download_to_file,
+            template_variables.copy())
+
+        if os.path.splitext(download_to_file)[1] == '.py':
+            os.chmod(download_to_file, 0755)
 
     return get_current_working_directory()
 
@@ -294,14 +284,14 @@ def get_package_dir_from_list(resource_list, template_variables={}):
             resource_list.remove(template_path)
 
             archive_path = os.path.join(
-                get_deployment_directory(), template_path)
+                get_blueprint_directory(), template_path)
             target_directory = os.path.join(
-                get_deployment_directory(), filename)
+                get_blueprint_directory(), filename)
             extract_archive_from_path(archive_path, target_directory)
 
             for extracted_template in os.walk(target_directory):
                 extracted_template_path = get_resource_relative_path(
-                    extracted_template, get_deployment_directory())
+                    extracted_template, get_blueprint_directory())
                 if extracted_template[2]:
                     for filename in extracted_template[2]:
                         resource_list.append(
@@ -309,37 +299,61 @@ def get_package_dir_from_list(resource_list, template_variables={}):
                 elif not extracted_template[1] and not extracted_template[2]:
                     resource_list.append(extracted_template_path)
 
-    for template_path in resource_list:
+    ctx.instance.runtime_properties['merged_list'] = merged_list
+
+
+def download_package_dir_from_list(template_variables={}):
+    merged_list = ctx.instance.runtime_properties['merged_list']
+
+    for template_path in merged_list:
         resource_name = os.path.basename(template_path)
         download_to = os.path.join(
             get_current_working_directory(), resource_name)
-        try:
-            ctx.download_resource_and_render(
-                template_path,
-                download_to,
-                template_variables.copy())
-        except IOError as e:
-            if e.errno != errno.EISDIR:
-                raise
+        ctx.download_resource_and_render(
+            template_path,
+            download_to,
+            template_variables.copy())
 
     return get_current_working_directory()
 
 
 def get_package_dir(resource_dir='', resource_list=[], template_variables={}):
-    """ Download resources and return the path. """
-
+    """
+    Prepares list of resource paths and saves it under 'merged_list'
+    runtime property
+    """
     if resource_dir and resource_list:
-        return get_package_dir_from_dir_and_list(
+        get_package_dir_from_dir_and_list(
             resource_dir=resource_dir,
             resource_list=resource_list,
             template_variables=template_variables)
     elif resource_dir and not resource_list:
-        return get_package_dir_from_dir(
+        get_package_dir_from_dir(
             resource_dir=resource_dir,
             template_variables=template_variables)
     elif not resource_dir and resource_list:
-        return get_package_dir_from_list(
+        get_package_dir_from_list(
             resource_list=resource_list,
+            template_variables=template_variables)
+    else:
+        raise NonRecoverableError("At least one of the two properties, \
+            resource_dir or resource_list, has to be defined.")
+
+
+def download_package_dir(   resource_dir='',
+                            resource_list=[],
+                            template_variables={}):
+    """ Download resources and return the path. """
+    if resource_dir and resource_list:
+        return download_package_dir_from_dir_and_list(
+            resource_dir=resource_dir,
+            resource_list=resource_list,
+            template_variables=template_variables)
+    elif resource_dir and not resource_list:
+        return download_package_dir_from_dir(
+            template_variables=template_variables)
+    elif not resource_dir and resource_list:
+        return download_package_dir_from_list(
             template_variables=template_variables)
     else:
         raise NonRecoverableError("At least one of the two properties, \
@@ -364,6 +378,76 @@ def handle_overrides(overrides, current):
         env.update(_overrides_env)
         overrides['env'] = env
     current.update(overrides)
+
+
+def init_package(**kwargs):
+    ctx.instance.runtime_properties['merged_list'] = []
+
+
+def retrieve_data(  resource_config,
+                    keypath,
+                    **kwargs):
+    """
+        Retrieves private key file from CM and puts it into instance-specific
+        resource_dir
+    """
+    resource_config = \
+        resource_config or ctx.source.node.properties['resource_config']
+    resource_dir = resource_config.get('resource_dir', '')
+    resource_path = os.path.join(get_blueprint_directory(), resource_dir)
+    shutil.copy(keypath, resource_path)
+    os.chmod(os.path.join(resource_path, os.path.basename(keypath)), 0644)
+    ctx.logger.info('SSH private key copied into resource_dir')
+
+
+def clear_data( resource_config,
+                keypath,
+                **kwargs):
+    """
+        Removes private key file from instance-specific resource_dir
+    """
+    resource_config = \
+        resource_config or ctx.source.node.properties['resource_config']
+    resource_dir = resource_config.get('resource_dir', '')
+    resource_path = os.path.join(get_blueprint_directory(), resource_dir)
+    os.remove(os.path.join(resource_path, os.path.basename(keypath)))
+    get_paths(resource_config)
+    ctx.logger.info('SSH private key removed from resource_dir')
+
+
+def get_paths(  resource_config,
+                subprocess_args_overrides=None,
+                ignore_failure=False,
+                retry_on_failure=False, **_):
+
+    """ Prepare a list of files in resource_dir """
+
+    resource_config = \
+        resource_config or ctx.source.node.properties['resource_config']
+
+    resource_dir = resource_config.get('resource_dir', '')
+    resource_list = resource_config.get('resource_list', [])
+    template_variables = resource_config.get('template_variables', {})
+
+    if not isinstance(resource_dir, basestring):
+        raise NonRecoverableError("'resource_dir' must be a string.")
+
+    if not isinstance(resource_list, list):
+        raise NonRecoverableError("'resource_list' must be a list.")
+
+    if not isinstance(template_variables, dict):
+        raise NonRecoverableError("'template_variables' must be a dictionary.")
+
+    get_package_dir(resource_dir, resource_list, template_variables)
+
+
+def attach_execution_node(**kwargs):
+    merged_list = ctx.target.instance.runtime_properties['merged_list']
+    ctx.source.instance.runtime_properties['merged_list'] = merged_list
+
+
+def detach_execution_node(**kwargs):
+    ctx.source.instance.runtime_properties['merged_list'] = None
 
 
 def execute(resource_config,
@@ -391,13 +475,13 @@ def execute(resource_config,
         raise NonRecoverableError("'template_variables' must be a dictionary.")
 
     if resource_dir:
-        tmp_dir = get_package_dir(
+        tmp_dir = download_package_dir(
             resource_dir, resource_list, template_variables)
         # in case of resource_dir is zip
         cwd = os.path.join(
             tmp_dir, os.path.splitext(resource_dir)[0])
     else:
-        cwd = get_package_dir(resource_dir, resource_list, template_variables)
+        cwd = download_package_dir(resource_dir, resource_list, template_variables)
     command = ['bash', '-c', 'source {0}'.format(file_to_source)]
 
     subprocess_args = \
