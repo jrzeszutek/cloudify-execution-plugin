@@ -1,9 +1,7 @@
 plugins:
 
   exec:
-    # executor: host_agent
     executor: central_deployment_agent
-    # source: https://github.com/cloudify-incubator/cloudify-execution-plugin/archive/0.4.0.zip
     source: cloudify-execution-plugin
     package_name: cloudify-execution-plugin
     package_version: '0.4.0'
@@ -25,10 +23,6 @@ data_types:
       template_variables:
         description: A dict containing variables as key-values.
         default: {}
-      # merged_list:
-      #   description: >
-      #     A list of all file paths under the resource_dir.
-      #   default: []
 
 
 relationships:
@@ -44,27 +38,15 @@ relationships:
 
   cloudify.relationships.package_connected_to_data:
     derived_from: cloudify.relationships.connected_to
-    target_interfaces:
+
+  cloudify.relationships.execution_connected_to_key:
+    derived_from: cloudify.relationships.connected_to
+    source_interfaces:
       cloudify.interfaces.relationship_lifecycle:
         preconfigure:
-          implementation: exec.exec_plugin.tasks.retrieve_data
-          inputs:
-            resource_config:
-              default: { get_property: [SOURCE, resource_config] }
-            keypath:
-              default: ''
-        postconfigure:
-          implementation: exec.exec_plugin.tasks.get_paths
-          inputs:
-            resource_config:
-              default: { get_property: [SOURCE, resource_config] }
+          implementation: exec.exec_plugin.tasks.attach_key
         unlink:
-          implementation: exec.exec_plugin.tasks.clear_data
-          inputs:
-            resource_config:
-              default: { get_property: [SOURCE, resource_config] }
-            keypath:
-              default: ''
+          implementation: exec.exec_plugin.tasks.detach_key
 
 
 node_types:
@@ -79,26 +61,30 @@ node_types:
       cloudify.interfaces.lifecycle:
         create:
           implementation: exec.exec_plugin.tasks.init_package
-        # configure:
-        #   implementation: exec.exec_plugin.tasks.retrieve_private_key
-        #   inputs:
-        #     resource_config:
-        #       default: { get_property: [ SELF, resource_config ] }
-        #     keypath:
-        #       default: ''
-        # start:
-        # configure:
-        #   implementation: exec.exec_plugin.tasks.get_paths
-        #   inputs:
-        #     resource_config:
-        #       default: { get_property: [ SELF, resource_config ] }
-        # stop:
-        #   implementation: exec.exec_plugin.tasks.remove_private_key
-        #   inputs:
-        #     resource_config:
-        #       default: { get_property: [ SELF, resource_config ] }
-        #     keypath:
-        #       default: ''
+        configure:
+          implementation: exec.exec_plugin.tasks.get_paths
+          inputs:
+            resource_config:
+              default: { get_property: [ SELF, resource_config ] }
+
+  cloudify.nodes.exec.Key:
+    derived_from: cloudify.nodes.Root
+    properties:
+      keypath:
+        description: >
+          Path to the SSH key in Cloudify Manager filesystem
+        type: string
+      dirname:
+        description: >
+          Name of the directory inside blueprint, where SSH key should be saved
+        type: string
+        default: keys
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        start:
+          implementation: exec.exec_plugin.tasks.retrieve_key
+        stop:
+          implementation: exec.exec_plugin.tasks.remove_key
 
   cloudify.nodes.Execution:
     derived_from: cloudify.nodes.SoftwareComponent

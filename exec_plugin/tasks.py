@@ -384,35 +384,46 @@ def init_package(**kwargs):
     ctx.instance.runtime_properties['merged_list'] = []
 
 
-def retrieve_data(  resource_config,
-                    keypath,
-                    **kwargs):
+def retrieve_key(**kwargs):
     """
-        Retrieves private key file from CM and puts it into instance-specific
-        resource_dir
+    Retrieves private key file from CM and puts it into desired directory
     """
-    resource_config = \
-        resource_config or ctx.source.node.properties['resource_config']
-    resource_dir = resource_config.get('resource_dir', '')
-    resource_path = os.path.join(get_blueprint_directory(), resource_dir)
-    shutil.copy(keypath, resource_path)
-    os.chmod(os.path.join(resource_path, os.path.basename(keypath)), 0644)
-    ctx.logger.info('SSH private key copied into resource_dir')
+    keypath = ctx.node.properties['keypath']
+    dirname = ctx.node.properties['dirname']
+    destination = os.path.join(get_blueprint_directory(), dirname)
+
+    if not verify_os_file_path(destination):
+        os.mkdir(destination)
+
+    shutil.copy(keypath, destination)
+    destination_path = os.path.join(destination, os.path.basename(keypath))
+    os.chmod(destination_path, 0644)
+    ctx.instance.runtime_properties['ssh_keypath'] = destination_path
+    ctx.logger.info('SSH private key copied into {}'.format(destination_path))
 
 
-def clear_data( resource_config,
-                keypath,
-                **kwargs):
+def remove_key(**kwargs):
     """
-        Removes private key file from instance-specific resource_dir
+    Removes private key file from directory defined in properties
     """
-    resource_config = \
-        resource_config or ctx.source.node.properties['resource_config']
-    resource_dir = resource_config.get('resource_dir', '')
-    resource_path = os.path.join(get_blueprint_directory(), resource_dir)
-    os.remove(os.path.join(resource_path, os.path.basename(keypath)))
-    get_paths(resource_config)
-    ctx.logger.info('SSH private key removed from resource_dir')
+    ssh_keypath = ctx.instance.runtime_properties['ssh_keypath']
+    os.remove(ssh_keypath)
+    ctx.logger.info('SSH private key removed from {}'.format(ssh_keypath))
+
+
+def attach_key(**kwargs):
+    download_from = ctx.target.instance.runtime_properties['ssh_keypath']
+    resource_config = ctx.source.node.properties['resource_config']
+    resource_dir = resource_config.get('resource_dir')
+    download_to = os.path.join(get_current_working_directory(), resource_dir)
+    ctx.source.instance.runtime_properties['ssh_keypath'] = download_to
+    ctx.download_resource(download_from, download_to)
+    ctx.logger.info('SSH private key attached to execution node.')
+
+
+def detach_key(**kwargs):
+    os.remove(ctx.target.instance.runtime_properties['ssh_keypath'])
+    ctx.logger.info('SSH private key detached from execution node.')
 
 
 def get_paths(  resource_config,
