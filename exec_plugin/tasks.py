@@ -5,6 +5,7 @@ import tempfile
 import errno
 import zipfile
 import copy
+import shutil
 
 from cloudify import ctx
 from cloudify.exceptions import (
@@ -74,8 +75,8 @@ def get_deployment_directory():
         return deployment_dir
     else:
         return get_blueprint_directory()
-      
-      
+
+
 def extract_archive_from_path(archive_path,
                               target_directory,
                               intermediate_actions=None):
@@ -366,7 +367,17 @@ def handle_overrides(overrides, current):
     current.update(overrides)
 
 
+def copy_files_from_list(files_to_copy, cwd):
+    if not isinstance(files_to_copy, list):
+        raise NonRecoverableError("'files_to_copy' must be a list.")
+    for file in files_to_copy:
+        shutil.copy(file, cwd)
+        os.chmod(os.path.join(cwd, os.path.basename(file)), 0600)
+        ctx.logger.info('Copied {} into {}'.format(os.path.basename(file), cwd))
+
+
 def execute(resource_config,
+            files_to_copy,
             file_to_source='exec',
             subprocess_args_overrides=None,
             ignore_failure=False,
@@ -376,6 +387,9 @@ def execute(resource_config,
 
     resource_config = \
         resource_config or ctx.node.properties['resource_config']
+
+    files_to_copy = \
+        files_to_copy or ctx.node.properties['files_to_copy']
 
     resource_dir = resource_config.get('resource_dir', '')
     resource_list = resource_config.get('resource_list', [])
@@ -396,9 +410,32 @@ def execute(resource_config,
         # in case of resource_dir is zip
         cwd = os.path.join(
             tmp_dir, os.path.splitext(resource_dir)[0])
+        unique_name = tmp_dir[-9:]
     else:
         cwd = get_package_dir(resource_dir, resource_list, template_variables)
-    command = ['bash', '-c', 'source {0}'.format(file_to_source)]
+        unique_name = cwd[-9:]
+
+    if files_to_copy:
+        copy_files_from_list(files_to_copy, cwd)
+
+    if 'remote_executor' in ctx.node.properties:
+        remote_exec = ctx.node.properties.get('remote_executor')
+        command = ['/bin/bash']
+
+        script = '''
+        cd {0} | tar -czf /tmp/{1}.tar.gz *
+        scp -o "StrictHostKeyChecking no" -i {4} /tmp/{1}.tar.gz {2}@{3}:/tmp/.
+        ssh {2}@{3} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i {4} "mkdir -p /tmp/{1} && tar -xzf /tmp/{1}.tar.gz -C /tmp/{1} && cd /tmp/{1} && source {5} && rm -rf /tmp/{1}.tar.gz"
+        rm -rf {0}/{1}.tar.gz
+        '''.format( cwd,
+                    unique_name,
+                    remote_exec.get('username'),
+                    remote_exec.get('ip'),
+                    remote_exec.get('keypath'),
+                    file_to_source)
+    else:
+        command = ['bash', '-c', 'source {0}'.format(file_to_source)]
+        script = None
 
     subprocess_args = \
         {
@@ -415,7 +452,7 @@ def execute(resource_config,
 
     process = subprocess.Popen(**subprocess_args)
 
-    out, err = process.communicate()
+    out, err = process.communicate(script)
     ctx.logger.debug('Out: {0}'.format(out))
     ctx.logger.debug('Err: {0}'.format(err))
 

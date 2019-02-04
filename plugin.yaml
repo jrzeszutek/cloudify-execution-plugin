@@ -23,6 +23,15 @@ data_types:
         description: A dict containing variables as key-values.
         default: {}
 
+  cloudify.types.exec.RemoteHost:
+    properties:
+      username:
+        default: centos
+      ip:
+        default: ''
+      keypath:
+        default: ''
+
 node_types:
 
   cloudify.nodes.Execution:
@@ -30,6 +39,11 @@ node_types:
     properties:
       resource_config:
         type: cloudify.types.exec.Package
+        required: false
+      remote_executor:
+        type: cloudify.types.exec.RemoteHost
+        required: false
+      files_to_copy:
         required: false
     interfaces:
       cloudify.interfaces.lifecycle:
@@ -39,6 +53,8 @@ node_types:
             resource_config:
               type: cloudify.types.exec.Package
               default: { get_property: [ SELF, resource_config ] }
+            files_to_copy:
+              default: { get_property: [ SELF, files_to_copy ] }
             file_to_source:
               type: string
               default: exec
