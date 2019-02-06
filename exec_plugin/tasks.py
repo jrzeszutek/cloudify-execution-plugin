@@ -405,18 +405,16 @@ def execute(resource_config,
     if not isinstance(template_variables, dict):
         raise NonRecoverableError("'template_variables' must be a dictionary.")
 
-    u_suffix = '_{}'.format(str(uuid.uuid4())[:8])
-
     if resource_dir:
         tmp_dir = get_package_dir(
             resource_dir, resource_list, template_variables)
         # in case of resource_dir is zip
         cwd = os.path.join(
             tmp_dir, os.path.splitext(resource_dir)[0])
-        unique_name = tmp_dir[-9:] + u_suffix
+        unique_name = tmp_dir[-9:]
     else:
         cwd = get_package_dir(resource_dir, resource_list, template_variables)
-        unique_name = cwd[-9:] + u_suffix
+        unique_name = cwd[-9:]
 
     if files_to_copy:
         copy_files_from_list(files_to_copy, cwd)
