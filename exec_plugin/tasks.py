@@ -8,6 +8,11 @@ import copy
 import shutil
 import uuid
 
+from .constants import (
+    DEPLOYMENTS_DIR,
+    BLUEPRINTS_DIR,
+    REMOTE_EXECUTOR)
+
 from cloudify import ctx
 from cloudify.exceptions import (
     NonRecoverableError,
@@ -57,20 +62,20 @@ def get_current_working_directory():
 def get_blueprint_directory():
     return get_directory_by_property_name(
         'blueprint_directory',
-        lambda: '/opt/manager/resources/blueprints/{0}/{1}'.format(
-            ctx.tenant_name, ctx.blueprint.id))
+        lambda: '{0}/{1}/{2}'.format(
+            BLUEPRINTS_DIR, ctx.tenant_name, ctx.blueprint.id))
 
 
 def get_deployment_directory():
     # In order to use update workflow, scripts should be taken from
     # deployment directory. But to assure the possibility of using the
     # plugin in install workflow (before the deployment directory is
-    # created), it returns this method returns blueprint directory,
+    # created), this method returns blueprint directory,
     # if deployment directory doesn't exist yet.
     deployment_dir = get_directory_by_property_name(
         'deployment_directory',
-        lambda: '/opt/manager/resources/deployments/{0}/{1}'.format(
-            ctx.tenant_name, ctx.deployment.id))
+        lambda: '{0}/{1}/{2}'.format(
+            DEPLOYMENTS_DIR, ctx.tenant_name, ctx.deployment.id))
 
     if deployment_dir:
         return deployment_dir
